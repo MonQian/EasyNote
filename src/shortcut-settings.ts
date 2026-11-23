@@ -1,5 +1,4 @@
 import {invoke} from '@tauri-apps/api/core';
-import {getCurrentWindow} from '@tauri-apps/api/window';
 const input=document.querySelector<HTMLInputElement>('#shortcut')!;
 const error=document.querySelector<HTMLElement>('#error')!;
 void invoke<{click_through_shortcut:string}>('load_note').then(note=>input.value=note.click_through_shortcut);
@@ -12,4 +11,4 @@ input.addEventListener('keydown',event=>{
   if(mods.length<2){error.textContent='请至少按住两个修饰键';return}
   input.value=[...mods,key].join('+');error.textContent='';
 });
-document.querySelector('#save')!.addEventListener('click',()=>void invoke('set_click_through_shortcut',{value:input.value}).then(()=>getCurrentWindow().hide()).catch(reason=>error.textContent=String(reason)));
+document.querySelector('#save')!.addEventListener('click',()=>void invoke('set_click_through_shortcut',{value:input.value}).then(()=>invoke('hide_popup',{label:'shortcut-settings'})).catch(reason=>error.textContent=String(reason)));

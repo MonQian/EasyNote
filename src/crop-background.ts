@@ -1,5 +1,5 @@
 import {invoke} from '@tauri-apps/api/core';
-import {getCurrentWindow} from '@tauri-apps/api/window';
+import {listen} from '@tauri-apps/api/event';
 const canvas=document.querySelector<HTMLCanvasElement>('#canvas')!;
 const ctx=canvas.getContext('2d')!;
 const error=document.querySelector<HTMLElement>('#error')!;
@@ -22,13 +22,12 @@ async function load(){
   const image=new Image();image.onload=()=>{picture=image;const scale=Math.min(1,700/image.width,450/image.height);canvas.width=Math.round(image.width*scale);canvas.height=Math.round(image.height*scale);box={x:0,y:0,w:canvas.width,h:canvas.height};draw();URL.revokeObjectURL(url)};
   image.onerror=()=>{error.textContent='图片加载失败';URL.revokeObjectURL(url)};image.src=url;
 }
-void load();
-getCurrentWindow().onFocusChanged(({payload})=>{if(payload)void load()});
-document.querySelector('#cancel')!.addEventListener('click',()=>void getCurrentWindow().hide());
+void listen('popup-opened',()=>void load()).then(()=>void load());
+document.querySelector('#cancel')!.addEventListener('click',()=>void invoke('hide_popup',{label:'crop-background'}).catch(reason=>error.textContent=String(reason)));
 document.querySelector('#save')!.addEventListener('click',()=>{
   if(!picture||box.w<2||box.h<2){error.textContent='请选取有效范围';return}
   const scaleX=picture.width/canvas.width,scaleY=picture.height/canvas.height;
   const output=document.createElement('canvas');output.width=Math.round(box.w*scaleX);output.height=Math.round(box.h*scaleY);
   output.getContext('2d')!.drawImage(picture,box.x*scaleX,box.y*scaleY,box.w*scaleX,box.h*scaleY,0,0,output.width,output.height);
-  output.toBlob(blob=>{if(!blob){error.textContent='无法生成裁切图片';return}void blob.arrayBuffer().then(buffer=>invoke('save_cropped_background',{bytes:Array.from(new Uint8Array(buffer))})).then(()=>getCurrentWindow().hide()).catch(reason=>error.textContent=String(reason))},'image/png');
+  output.toBlob(blob=>{if(!blob){error.textContent='无法生成裁切图片';return}void blob.arrayBuffer().then(buffer=>invoke('save_cropped_background',{bytes:Array.from(new Uint8Array(buffer))})).then(()=>invoke('hide_popup',{label:'crop-background'})).catch(reason=>error.textContent=String(reason))},'image/png');
 });

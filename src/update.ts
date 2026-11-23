@@ -1,12 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getVersion } from '@tauri-apps/api/app';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import './popup.css';
 import './update.css';
 
-type Release = { tag_name: string };
-const releasesApi = 'https://api.github.com/repos/MonQian/EasyNote/releases/latest';
+type Release = { tag_name: string; draft: boolean };
+const releasesApi = 'https://api.github.com/repos/MonQian/EasyNote/releases?per_page=30';
 
 function versionParts(value: string): number[] {
   const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(value);
@@ -21,6 +20,13 @@ function isNewer(latest: string, current: string): boolean {
     if (a[i] !== b[i]) return a[i] > b[i];
   }
   return false;
+}
+
+function latestRelease(releases: Release[]): string {
+  const versions = releases.filter(item => !item.draft && /^v?\d+\.\d+\.\d+$/.test(item.tag_name));
+  if (!versions.length) throw new Error('未找到可用版本');
+  versions.sort((a, b) => isNewer(a.tag_name, b.tag_name) ? -1 : isNewer(b.tag_name, a.tag_name) ? 1 : 0);
+  return versions[0].tag_name;
 }
 
 const status = document.querySelector<HTMLElement>('#status')!;
@@ -47,8 +53,7 @@ async function check(): Promise<void> {
         cache: 'no-store',
       });
       if (!response.ok) throw new Error(`GitHub 返回 HTTP ${response.status}`);
-      const result = await response.json() as Release;
-      latestVersion = result.tag_name;
+      latestVersion = latestRelease(await response.json() as Release[]);
     } finally {
       window.clearTimeout(timer);
     }
@@ -71,9 +76,7 @@ release.addEventListener('click', async () => {
   catch (error) { status.textContent = String(error); }
 });
 document.querySelector('#close')!.addEventListener('click', async () => {
-  try { await getCurrentWindow().hide(); }
+  try { await invoke('hide_popup', {label:'update'}); }
   catch (error) { status.textContent = `无法关闭窗口：${String(error)}`; }
 });
-void listen('check-update', () => void check()).then(async () => {
-  if (await getCurrentWindow().isVisible()) void check();
-});
+void listen('check-update', () => void check()).then(() => void check());

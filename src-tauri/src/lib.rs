@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{
     menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager,
+    Emitter, Listener, Manager,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_notification::NotificationExt;
@@ -146,8 +146,9 @@ fn load_background_image(state: tauri::State<NoteState>) -> Result<Option<(Strin
 
 #[tauri::command]
 fn load_background_source(state: tauri::State<NoteState>) -> Result<Option<(String, Vec<u8>)>, String> {
+    let pending = state.path.with_file_name("background-pending.bin");
     let source = state.path.with_file_name("background-source.bin");
-    let path = if source.exists() { source } else { state.path.with_file_name("background-image.bin") };
+    let path = if pending.exists() { pending } else if source.exists() { source } else { state.path.with_file_name("background-image.bin") };
     if !path.exists() { return Ok(None); }
     let bytes = fs::read(path).map_err(|error| error.to_string())?;
     let mime = image_mime(&bytes).ok_or("背景图片格式无效")?;
@@ -158,6 +159,11 @@ fn load_background_source(state: tauri::State<NoteState>) -> Result<Option<(Stri
 fn save_cropped_background(app: tauri::AppHandle, bytes: Vec<u8>) -> Result<(), String> {
     if bytes.len() > 20_000_000 || !bytes.starts_with(&[137, 80, 78, 71, 13, 10, 26, 10]) { return Err("裁切图片必须是小于 20 MB 的 PNG".into()); }
     let state = app.state::<NoteState>();
+    let pending = state.path.with_file_name("background-pending.bin");
+    if pending.exists() {
+        fs::copy(&pending, state.path.with_file_name("background-source.bin")).map_err(|e| e.to_string())?;
+        fs::remove_file(&pending).map_err(|e| e.to_string())?;
+    }
     fs::write(state.path.with_file_name("background-image.bin"), bytes).map_err(|e| e.to_string())?;
     let mut note = state.note.lock().unwrap();
     note.theme = "custom".into();
@@ -320,6 +326,7 @@ fn show_centered_popup(app: &tauri::AppHandle, label: &str) {
         if let Err(error) = center_popup_window(app, &window) { eprintln!("Popup center error: {error}"); }
         let _ = window.show();
         let _ = window.set_focus();
+        let _ = app.emit_to(label, "popup-opened", ());
     }
 }
 
@@ -328,6 +335,17 @@ fn center_popup(app: tauri::AppHandle, label: String) -> Result<(), String> {
     if !["add-todo", "export", "update", "crop-background", "shortcut-settings", "manual"].contains(&label.as_str()) { return Err("未知弹窗".into()); }
     let window = app.get_webview_window(&label).ok_or("弹窗不存在")?;
     center_popup_window(&app, &window)
+}
+
+#[tauri::command]
+fn hide_popup(app: tauri::AppHandle, label: String) -> Result<(), String> {
+    if !["crop-background", "shortcut-settings", "update"].contains(&label.as_str()) { return Err("未知弹窗".into()); }
+    if label == "crop-background" {
+        let state = app.state::<NoteState>();
+        let pending = state.path.with_file_name("background-pending.bin");
+        if pending.exists() { fs::remove_file(pending).map_err(|e| e.to_string())?; }
+    }
+    app.get_webview_window(&label).ok_or("弹窗不存在")?.hide().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -526,7 +544,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![load_note, load_custom_sound, load_background_image, load_background_source, save_cropped_background, save_note, set_click_through_shortcut, center_popup, form_todo, add_todo, update_todo, toggle_todo, delete_todo, open_add_todo, open_edit_todo, close_add_todo, export_todos, close_export, update::open_update_page])
+        .invoke_handler(tauri::generate_handler![load_note, load_custom_sound, load_background_image, load_background_source, save_cropped_background, save_note, set_click_through_shortcut, center_popup, hide_popup, form_todo, add_todo, update_todo, toggle_todo, delete_todo, open_add_todo, open_edit_todo, close_add_todo, export_todos, close_export, update::open_update_page])
         .setup(|app| {
             // The OS registration is the source of truth for startup state.
             app.handle().plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))?;
@@ -676,6 +694,13 @@ pub fn run() {
                 .item(&cleanup_menu).item(&cleanup_time_menu).item(&retention_menu).text("export_history", "导出历史待办")
                 .separator().item(&mute).item(&volume_menu).item(&tone_menu);
             let menu = menu.separator().item(&startup).separator().text("check_update", "检查更新").text("tips", "使用手册").separator().text("quit", "退出 EasyNote").build()?;
+            let (crop_mist, crop_night, crop_warm, crop_custom) = (mist.clone(), night.clone(), warm.clone(), custom.clone());
+            app.listen("background-image-changed", move |_| {
+                let _ = crop_mist.set_checked(false);
+                let _ = crop_night.set_checked(false);
+                let _ = crop_warm.set_checked(false);
+                let _ = crop_custom.set_checked(true);
+            });
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().ok_or("Missing tray icon")?.clone())
@@ -875,10 +900,6 @@ pub fn run() {
                     }
                     "theme_choose_image" => {
                         let app = app.clone();
-                        let mist = mist.clone();
-                        let night = night.clone();
-                        let warm = warm.clone();
-                        let custom = custom.clone();
                         app.dialog().file().add_filter("图片文件", &["png", "jpg", "jpeg", "webp"]).pick_file(move |selected| {
                             let Some(selected) = selected else { return; };
                             let Ok(path) = selected.into_path() else { return; };
@@ -887,19 +908,7 @@ pub fn run() {
                                 eprintln!("背景图片需为 PNG、JPEG 或 WebP，且不超过 20 MB"); return;
                             }
                             let state = app.state::<NoteState>();
-                            if let Err(error) = fs::write(state.path.with_file_name("background-source.bin"), &bytes) { eprintln!("Background source save error: {error}"); return; }
-                            let target = state.path.with_file_name("background-image.bin");
-                            if let Err(error) = fs::write(target, bytes) { eprintln!("Background image save error: {error}"); return; }
-                            let mut note = state.note.lock().unwrap();
-                            let previous = note.theme.clone();
-                            note.theme = "custom".into();
-                            if let Err(error) = write_note(&state.path, &note) { note.theme = previous; eprintln!("Theme save error: {error}"); return; }
-                            let _ = mist.set_checked(false);
-                            let _ = night.set_checked(false);
-                            let _ = warm.set_checked(false);
-                            let _ = custom.set_checked(true);
-                            let _ = app.emit("background-image-changed", ());
-                            let _ = app.emit("theme-changed", "custom");
+                            if let Err(error) = fs::write(state.path.with_file_name("background-pending.bin"), &bytes) { eprintln!("Background source save error: {error}"); return; }
                             show_centered_popup(&app, "crop-background");
                         });
                     }

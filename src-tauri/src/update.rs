@@ -1,6 +1,6 @@
 use std::process::Command;
 
-const RELEASES_PAGE: &str = "https://github.com/MonQian/EasyNote/releases/latest";
+const RELEASES_PAGE: &str = "https://github.com/MonQian/EasyNote/releases";
 
 #[tauri::command]
 pub fn open_update_page() -> Result<(), String> {
