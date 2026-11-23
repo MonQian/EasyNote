@@ -2,6 +2,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow, LogicalSize, PhysicalPosition, currentMonitor } from '@tauri-apps/api/window';
 import './style.css';
+import './popup.css';
+import './add-todo-popup.css';
 
 const card=document.querySelector<HTMLElement>('#add-card')!;
 const form=document.querySelector<HTMLFormElement>('#todo-form')!;
@@ -12,7 +14,7 @@ function fitWindow(){resizeJob=resizeJob.then(async()=>{
   const scale=await win.scaleFactor();
   const current=await win.innerSize();
   const monitor=await currentMonitor();
-  const needed=Math.ceil(form.getBoundingClientRect().height+card.querySelector<HTMLElement>('.add-drag')!.offsetHeight+parseFloat(getComputedStyle(card).paddingBottom));
+  const needed=Math.ceil(form.getBoundingClientRect().height+parseFloat(getComputedStyle(card).paddingTop)+parseFloat(getComputedStyle(card).paddingBottom));
   const max=monitor?Math.floor(monitor.workArea.size.height/scale)-16:needed;
   const height=Math.min(max,Math.max(needed,180));
   if(Math.abs(current.height/scale-height)>1)await win.setSize(new LogicalSize(current.width/scale,height));

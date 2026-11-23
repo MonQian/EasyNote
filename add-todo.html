@@ -2,8 +2,7 @@
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>新增待办</title></head>
 <body>
-  <main id="add-card" class="add-card" data-theme="mist">
-    <div class="add-drag" data-tauri-drag-region>新增待办</div>
+  <main id="add-card" class="popup add-card" data-theme="mist">
     <form id="todo-form">
       <label>项目<input name="title" maxlength="120" required placeholder="要做什么？" autofocus></label>
       <label>备注<input name="memo" placeholder="可选"></label>
@@ -13,7 +12,7 @@
       <div class="grid"><label>优先级<select name="priority"><option value="normal">🟡 普通</option><option value="high">🔴 高</option><option value="low">🟢 低</option></select></label><label>类型<select name="kind"><option value="work">🔵 工作</option><option value="life">🟠 生活</option><option value="study">🟢 学习</option><option value="other">⚪ 其他</option></select></label></div>
       <details class="reminder-details"><summary>提醒（可多选）</summary><fieldset class="remind-options"><label><input type="checkbox" name="remind_offsets" value="1440">1 天前</label><label><input type="checkbox" name="remind_offsets" value="2880">2 天前</label><label><input type="checkbox" name="remind_offsets" value="4320">3 天前</label><label><input type="checkbox" name="remind_offsets" value="10080">一周前</label></fieldset><label class="custom-reminder">自定义日期时间<span class="date-field"><input name="remind_at" type="datetime-local"><span class="date-placeholder">年/月/日 --:--</span></span></label></details>
       <div id="form-error" role="alert"></div>
-      <div class="actions"><button type="button" id="cancel">取消</button><button type="submit" id="submit-todo">添加</button></div>
+      <div class="buttons"><button type="button" id="cancel">取消</button><button type="submit" id="submit-todo" class="primary">添加</button></div>
     </form>
   </main>
   <script type="module" src="/src/add-todo.ts"></script>

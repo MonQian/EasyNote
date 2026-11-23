@@ -13,7 +13,7 @@
     }, {
       "label": "add-todo", "title": "新增待办", "url": "add-todo.html",
       "width": 340, "height": 400, "resizable": false, "visible": false,
-      "decorations": false, "transparent": true, "shadow": false,
+      "decorations": true, "transparent": false, "shadow": true,
       "alwaysOnTop": true, "skipTaskbar": true
     }, {
       "label": "export", "title": "导出历史待办", "url": "export.html",

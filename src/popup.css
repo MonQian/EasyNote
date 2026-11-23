@@ -1,0 +1,16 @@
+:root{font-family:"Microsoft YaHei",sans-serif;color:#252b34;background:#f8fafc;font-synthesis:none}
+*{box-sizing:border-box}
+html,body{width:100%;min-height:100%;margin:0;overflow-x:hidden;background:#f8fafc}
+main.popup{width:100%;padding:14px 22px 25px}
+.popup p,.popup small{font-size:13px;line-height:1.6}
+.popup label{font-size:14px}
+.popup input:not([type=checkbox]),.popup select,.popup textarea{font:13px "Microsoft YaHei",sans-serif;color:#252b34;background:#fff;border:1px solid #d3dbe5;border-radius:7px;padding:7px;min-width:0}
+.popup input:focus,.popup select:focus,.popup textarea:focus{outline:2px solid #597ba9;outline-offset:1px}
+.popup input[type=checkbox]{width:14px;height:14px;margin:0;accent-color:#597ba9}
+.popup .buttons{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+.popup button{font:13px "Microsoft YaHei",sans-serif;padding:8px 20px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#252b34;cursor:pointer}
+.popup button:hover{background:#eef3f9}
+.popup button.primary{background:#597ba9;color:#fff;border-color:#597ba9}
+.popup button.primary:hover{background:#496b96}
+.popup button:disabled{opacity:.5;cursor:default}
+.popup .status{font-size:12px;overflow-wrap:anywhere;color:#b33;min-height:18px;margin:12px 0 0}
