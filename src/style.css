@@ -7,6 +7,11 @@
 .glass,.add-card{background:var(--surface);backdrop-filter:blur(calc(20px * var(--opacity-level)));border-top:1px solid var(--edge);border-left:1px solid var(--edge)}
 .stack .glass{box-shadow:0 3px 9px rgba(0,0,0,.12)}
 .stack.clear{background:transparent;border-color:transparent}.stack.clear .glass{border-color:transparent;box-shadow:none}
+.stack[data-theme=custom]{background:transparent;overflow:hidden}
+.stack[data-theme=custom]::before{content:"";position:absolute;inset:0;border-radius:18px;background-image:var(--custom-image);background-position:center;background-size:cover;opacity:var(--opacity-level);pointer-events:none}
+.stack[data-theme=custom] > .todo-card,.stack[data-theme=custom] > .card{position:relative;z-index:1}
+.stack[data-theme=custom] .glass{background:rgba(255,255,255,calc(var(--opacity) * .45));backdrop-filter:blur(3px)}
+.stack[data-theme=custom].clear .glass{background:transparent}
 .card{height:251px;min-height:100px;flex:none;display:flex;flex-direction:column;overflow:hidden;border-radius:12px;filter:brightness(.96);transition:filter .2s ease,background .2s ease,backdrop-filter .2s ease}
 .stack .card{box-shadow:none}
 .card.active{filter:brightness(1);backdrop-filter:blur(calc(24px * var(--opacity-level)))}

@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow, currentMonitor, availableMonitors, PhysicalPosition, LogicalSize } from '@tauri-apps/api/window';
 import './style.css';
 
-type Theme = 'mist' | 'night' | 'warm';
+type Theme = 'mist' | 'night' | 'warm' | 'custom';
 type Priority = 'red' | 'yellow' | 'green' | 'gray';
 type Todo = {id:string;title:string;memo:string;due_at:number|null;time_specified:boolean;repeat:string;priority:string;kind:string;completed_at:number|null;duration_minutes:number};
 type NotePage = {id:string;text:string;priority:Priority;edited_at:number};
@@ -22,6 +22,7 @@ let saveTimer:number|undefined;
 let moving = false;
 let windowReady = false;
 let resizeJob = Promise.resolve();
+let backgroundUrl:string|undefined;
 
 async function loadNoteReady():Promise<Note>{
   for(let attempt=0;attempt<30;attempt++){
@@ -54,10 +55,19 @@ function applyHeights(){card.style.height=`${note.note_height}px`;todoCard.style
 
 // 100% remains subtly translucent; 0% removes only the card background.
 function showOpacity(value:number){const level=Math.min(100,Math.max(0,value))/100;stack.style.setProperty('--opacity',String(level*.84));stack.style.setProperty('--opacity-level',String(level));stack.classList.toggle('clear',level===0)}
+async function refreshBackground(){
+  try{
+    const image=await invoke<[string,number[]]|null>('load_background_image');
+    if(backgroundUrl)URL.revokeObjectURL(backgroundUrl);
+    backgroundUrl=image?URL.createObjectURL(new Blob([new Uint8Array(image[1])],{type:image[0]})):undefined;
+    if(backgroundUrl)stack.style.setProperty('--custom-image',`url("${backgroundUrl}")`);
+    else stack.style.removeProperty('--custom-image');
+  }catch(error){showToast(`背景图片加载失败：${String(error)}`)}
+}
 function showSections(){stack.classList.toggle('hide-todos',!note.show_todos);stack.classList.toggle('hide-note',!note.show_note);applyHeights()}
 function currentPage(){return note.pages[note.active_page]}
 function renderPage(){const page=currentPage();editor.value=page.text;card.classList.toggle('empty',!page.text.trim());document.querySelector('#page-count')!.textContent=`${note.active_page+1}/${note.pages.length}`;document.querySelector<HTMLButtonElement>('#prev-page')!.disabled=note.active_page===0;document.querySelector<HTMLButtonElement>('#next-page')!.disabled=note.active_page===note.pages.length-1;document.querySelector<HTMLButtonElement>('#delete-page')!.disabled=note.pages.length===1;updateTime();updateLine()}
-function render(){stack.dataset.theme=note.theme;showOpacity(note.opacity);showSections();renderPage();renderTodos()}
+function render(){stack.dataset.theme=note.theme;if(note.theme==='custom')void refreshBackground();showOpacity(note.opacity);showSections();renderPage();renderTodos()}
 function renderTodos(){
   const heading=document.querySelector<HTMLElement>('.todo-header span');
   if(heading){const unfinished=note.todos.filter(todo=>!todo.completed_at).length;const overdue=note.todos.filter(todo=>!todo.completed_at&&todo.due_at!==null&&todo.due_at+(todo.time_specified?0:86400000)<Date.now()).length;heading.replaceChildren();heading.className='todo-summary';const total=document.createElement('span');total.textContent=`待办  ${note.todos.length}`;const status=document.createElement('span');status.className='todo-summary-status';const active=document.createElement('span');active.className='summary-unfinished';active.textContent=`未完成 ${unfinished}`;const expired=document.createElement('span');expired.className='summary-overdue';expired.textContent=`已过期 ${overdue}`;status.append(active,expired);heading.append(total,status)}
@@ -158,7 +168,7 @@ async function snap(){if(moving)return;moving=true;try{const pos=await win.outer
 
 function showToast(message:string){toast.textContent=message;toast.hidden=false;window.setTimeout(()=>toast.hidden=true,8000)}
 async function beep(){if(note.mute_app||note.reminder_mode==='popup'||note.notification_volume===0)return;if(note.notification_tone==='custom'){try{const bytes=await invoke<number[]>('load_custom_sound');const url=URL.createObjectURL(new Blob([new Uint8Array(bytes)]));const player=new Audio(url);player.volume=note.notification_volume/100;player.onended=()=>URL.revokeObjectURL(url);player.onerror=()=>URL.revokeObjectURL(url);await player.play()}catch(error){console.error('提示音播放失败',error)}return}const audio=new AudioContext();const oscillator=audio.createOscillator();const gain=audio.createGain();const tones:Record<string,{frequency:number;wave:OscillatorType;duration:number}>={chime:{frequency:880,wave:'sine',duration:.3},bell:{frequency:660,wave:'triangle',duration:.55},soft:{frequency:520,wave:'sine',duration:.4}};const tone=tones[note.notification_tone]||tones.chime;oscillator.type=tone.wave;oscillator.frequency.value=tone.frequency;gain.gain.setValueAtTime(.15*note.notification_volume/100,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+tone.duration);oscillator.connect(gain).connect(audio.destination);oscillator.start();oscillator.stop(audio.currentTime+tone.duration);oscillator.onended=()=>void audio.close();void audio.resume().catch(console.error)}
-async function init(){note=await loadNoteReady();await restoreWidth();render();await restorePosition();windowReady=true;adjustWindowHeight();await win.onMoved(()=>{window.setTimeout(()=>void snap(),120)});await win.onResized(({payload:size})=>{void win.scaleFactor().then(scale=>{const width=Math.round(size.width/scale);if(width>=200&&width<=2000&&width!==note.window_width){note.window_width=width;saveSoon()}})});await win.onFocusChanged(({payload:focused})=>{if(!focused){setEditing(false);return}focusChanged();void invoke<Note>('load_note').then(latest=>{note.opacity=latest.opacity;showOpacity(note.opacity);note.theme=latest.theme;stack.dataset.theme=note.theme;note.todos=latest.todos;note.show_todos=latest.show_todos;note.show_note=latest.show_note;note.reminder_sound=latest.reminder_sound;note.reminder_mode=latest.reminder_mode;note.mute_app=latest.mute_app;note.notification_volume=latest.notification_volume;note.notification_tone=latest.notification_tone;note.sort_order=latest.sort_order;showSections();renderTodos()})});await listen<Theme>('theme-changed',event=>{note.theme=event.payload;stack.dataset.theme=note.theme});await listen<number>('opacity-changed',event=>{note.opacity=event.payload;showOpacity(note.opacity)});await listen<[boolean,boolean]>('visibility-changed',event=>{[note.show_todos,note.show_note]=event.payload;showSections()});await listen<[string,boolean]>('reminder-settings-changed',event=>{[note.reminder_mode,note.mute_app]=event.payload});await listen<[number,string]>('notification-sound-changed',event=>{[note.notification_volume,note.notification_tone]=event.payload});await listen<string>('sort-changed',event=>{note.sort_order=event.payload;renderTodos()});await listen('todos-changed',()=>void invoke<Note>('load_note').then(latest=>{note.todos=latest.todos;renderTodos()}));await listen<string>('todo-reminder',event=>{beep()});await listen('show-tips',()=>showToast('提示：拖动待办标题可移动窗口；便签可用箭头翻页。'));}
+async function init(){note=await loadNoteReady();await restoreWidth();render();await restorePosition();windowReady=true;adjustWindowHeight();await win.onMoved(()=>{window.setTimeout(()=>void snap(),120)});await win.onResized(({payload:size})=>{void win.scaleFactor().then(scale=>{const width=Math.round(size.width/scale);if(width>=200&&width<=2000&&width!==note.window_width){note.window_width=width;saveSoon()}})});await win.onFocusChanged(({payload:focused})=>{if(!focused){setEditing(false);return}focusChanged();void invoke<Note>('load_note').then(latest=>{note.opacity=latest.opacity;showOpacity(note.opacity);note.theme=latest.theme;stack.dataset.theme=note.theme;if(note.theme==='custom'&&!backgroundUrl)void refreshBackground();note.todos=latest.todos;note.show_todos=latest.show_todos;note.show_note=latest.show_note;note.reminder_sound=latest.reminder_sound;note.reminder_mode=latest.reminder_mode;note.mute_app=latest.mute_app;note.notification_volume=latest.notification_volume;note.notification_tone=latest.notification_tone;note.sort_order=latest.sort_order;showSections();renderTodos()})});await listen<Theme>('theme-changed',event=>{note.theme=event.payload;stack.dataset.theme=note.theme;if(note.theme==='custom'&&!backgroundUrl)void refreshBackground()});await listen('background-image-changed',()=>void refreshBackground());await listen<number>('opacity-changed',event=>{note.opacity=event.payload;showOpacity(note.opacity)});await listen<[boolean,boolean]>('visibility-changed',event=>{[note.show_todos,note.show_note]=event.payload;showSections()});await listen<[string,boolean]>('reminder-settings-changed',event=>{[note.reminder_mode,note.mute_app]=event.payload});await listen<[number,string]>('notification-sound-changed',event=>{[note.notification_volume,note.notification_tone]=event.payload});await listen<string>('sort-changed',event=>{note.sort_order=event.payload;renderTodos()});await listen('todos-changed',()=>void invoke<Note>('load_note').then(latest=>{note.todos=latest.todos;renderTodos()}));await listen<string>('todo-reminder',event=>{beep()});}
 void init().catch(error=>{console.error(error);edited.textContent=`加载失败：${String(error).slice(0,80)}`});
 
 

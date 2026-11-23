@@ -124,9 +124,25 @@ fn load_custom_sound(state: tauri::State<NoteState>) -> Result<Vec<u8>, String> 
     fs::read(path).map_err(|e| e.to_string())
 }
 
+fn image_mime(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") { Some("image/png") }
+    else if bytes.starts_with(b"\xff\xd8\xff") { Some("image/jpeg") }
+    else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" { Some("image/webp") }
+    else { None }
+}
+
+#[tauri::command]
+fn load_background_image(state: tauri::State<NoteState>) -> Result<Option<(String, Vec<u8>)>, String> {
+    let path = state.path.with_file_name("background-image.bin");
+    if !path.exists() { return Ok(None); }
+    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    let mime = image_mime(&bytes).ok_or("背景图片格式无效")?;
+    Ok(Some((mime.into(), bytes)))
+}
+
 #[tauri::command]
 fn save_note(state: tauri::State<NoteState>, mut note: Note) -> Result<(), String> {
-    if !["mist", "night", "warm"].contains(&note.theme.as_str()) ||
+    if !["mist", "night", "warm", "custom"].contains(&note.theme.as_str()) ||
        !["gray", "red", "yellow", "green"].contains(&note.priority.as_str()) {
         return Err("Invalid note settings".into());
     }
@@ -450,7 +466,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![load_note, load_custom_sound, save_note, form_todo, add_todo, update_todo, toggle_todo, delete_todo, open_add_todo, open_edit_todo, close_add_todo, export_todos, close_export, update::open_update_page])
+        .invoke_handler(tauri::generate_handler![load_note, load_custom_sound, load_background_image, save_note, form_todo, add_todo, update_todo, toggle_todo, delete_todo, open_add_todo, open_edit_todo, close_add_todo, export_todos, close_export, update::open_update_page])
         .setup(|app| {
             // The OS registration is the source of truth for startup state.
             app.handle().plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))?;
@@ -520,6 +536,7 @@ pub fn run() {
             let mist = CheckMenuItemBuilder::with_id("theme_mist", "雾白").checked(theme == "mist").build(app)?;
             let night = CheckMenuItemBuilder::with_id("theme_night", "夜岩").checked(theme == "night").build(app)?;
             let warm = CheckMenuItemBuilder::with_id("theme_warm", "暖纸").checked(theme == "warm").build(app)?;
+            let custom = CheckMenuItemBuilder::with_id("theme_custom", "图片背景").checked(theme == "custom").build(app)?;
             let startup = CheckMenuItemBuilder::with_id("startup", "开机自启")
                 .checked(app.autolaunch().is_enabled().unwrap_or(false)).build(app)?;
             let todos_visible = CheckMenuItemBuilder::with_id("show_todos", "显示待办").checked(show_todos).build(app)?;
@@ -584,7 +601,7 @@ pub fn run() {
             let mut retention_menu = SubmenuBuilder::new(app, "数据库清理时间");
             for option in &retention_options { retention_menu = retention_menu.item(option); }
             let retention_menu = retention_menu.build()?;
-            let themes = SubmenuBuilder::new(app, "主题切换").items(&[&mist, &night, &warm]).build()?;
+            let themes = SubmenuBuilder::new(app, "主题切换").items(&[&mist, &night, &warm, &custom]).separator().text("theme_choose_image", "选择背景图片…").build()?;
             let menu = MenuBuilder::new(app)
                 .text("toggle", "显示/隐藏窗口")
                 .item(&todos_visible).item(&note_visible)
@@ -593,7 +610,7 @@ pub fn run() {
                 .separator()
                 .item(&cleanup_menu).item(&cleanup_time_menu).item(&retention_menu).text("export_history", "导出历史待办")
                 .separator().item(&mute).item(&volume_menu).item(&tone_menu);
-            let menu = menu.separator().item(&startup).separator().text("check_update", "检查更新").text("tips", "提示与技巧").separator().text("quit", "退出 EasyNote").build()?;
+            let menu = menu.separator().item(&startup).separator().text("check_update", "检查更新").text("tips", "使用手册").separator().text("quit", "退出 EasyNote").build()?;
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().ok_or("Missing tray icon")?.clone())
@@ -638,7 +655,7 @@ pub fn run() {
                         for (index, option) in sort_options.iter().enumerate() { let _ = option.set_checked(sort_orders[index] == selected); }
                         let _ = app.emit("sort-changed", selected);
                     }
-                    "tips" => { let _ = app.emit("show-tips", ()); if let Some(window) = app.get_webview_window("main") { let _ = window.show(); } },
+                    "tips" => { if let Some(window) = app.get_webview_window("manual") { let _ = window.show(); let _ = window.set_focus(); } },
                     "check_update" => {
                         if let Some(window) = app.get_webview_window("update") {
                             let _ = window.show();
@@ -792,9 +809,38 @@ pub fn run() {
                         }
                         let _ = app.emit("opacity-changed", next);
                     }
-                    "theme_mist" | "theme_night" | "theme_warm" => {
+                    "theme_choose_image" => {
+                        let app = app.clone();
+                        let mist = mist.clone();
+                        let night = night.clone();
+                        let warm = warm.clone();
+                        let custom = custom.clone();
+                        app.dialog().file().add_filter("图片文件", &["png", "jpg", "jpeg", "webp"]).pick_file(move |selected| {
+                            let Some(selected) = selected else { return; };
+                            let Ok(path) = selected.into_path() else { return; };
+                            let Ok(bytes) = fs::read(&path) else { return; };
+                            if bytes.len() > 20_000_000 || image_mime(&bytes).is_none() {
+                                eprintln!("背景图片需为 PNG、JPEG 或 WebP，且不超过 20 MB"); return;
+                            }
+                            let state = app.state::<NoteState>();
+                            let target = state.path.with_file_name("background-image.bin");
+                            if let Err(error) = fs::write(target, bytes) { eprintln!("Background image save error: {error}"); return; }
+                            let mut note = state.note.lock().unwrap();
+                            let previous = note.theme.clone();
+                            note.theme = "custom".into();
+                            if let Err(error) = write_note(&state.path, &note) { note.theme = previous; eprintln!("Theme save error: {error}"); return; }
+                            let _ = mist.set_checked(false);
+                            let _ = night.set_checked(false);
+                            let _ = warm.set_checked(false);
+                            let _ = custom.set_checked(true);
+                            let _ = app.emit("background-image-changed", ());
+                            let _ = app.emit("theme-changed", "custom");
+                        });
+                    }
+                    "theme_custom" | "theme_mist" | "theme_night" | "theme_warm" => {
                         let selected = event.id().0.trim_start_matches("theme_");
                         let state = app.state::<NoteState>();
+                        if selected == "custom" && !state.path.with_file_name("background-image.bin").exists() { return; }
                         let mut note = state.note.lock().unwrap();
                         note.theme = selected.to_string();
                         if let Err(error) = write_note(&state.path, &note) { eprintln!("Theme save error: {error}"); }
@@ -802,6 +848,7 @@ pub fn run() {
                         let _ = mist.set_checked(selected == "mist");
                         let _ = night.set_checked(selected == "night");
                         let _ = warm.set_checked(selected == "warm");
+                        let _ = custom.set_checked(selected == "custom");
                     }
                     _ => {}
                 })
@@ -825,7 +872,15 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{next_due, write_note, Note, Todo, storage, export};
+    use super::{image_mime, next_due, write_note, Note, Todo, storage, export};
+
+    #[test]
+    fn background_image_accepts_supported_signatures() {
+        assert_eq!(image_mime(b"\x89PNG\r\n\x1a\nrest"), Some("image/png"));
+        assert_eq!(image_mime(b"\xff\xd8\xffrest"), Some("image/jpeg"));
+        assert_eq!(image_mime(b"RIFFxxxxWEBPrest"), Some("image/webp"));
+        assert_eq!(image_mime(b"not an image"), None);
+    }
 
     #[test]
     fn old_note_without_opacity_keeps_default() {

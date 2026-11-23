@@ -8,11 +8,9 @@ EasyNote 是一款把**待办事项和便签放在同一桌面窗口**的轻量�
 
 | 版本 | 下载 | 用途 |
 | --- | --- | --- |
-| 安装版 | [EasyNote_1.0.0_x64_setup.exe](https://github.com/MonQian/EasyNote/releases/download/v1.0.0/EasyNote_1.0.0_x64_setup.exe) | 常规安装，包含卸载程序 |
+| 安装版 | [EasyNote_1.0.2_x64_setup.exe](https://github.com/MonQian/EasyNote/releases/download/v1.0.2/EasyNote_1.0.2_x64_setup.exe) | 常规安装，包含卸载程序 |
 
-完整版本信息及源码压缩包见 [v1.0.0 发布页](https://github.com/MonQian/EasyNote/releases/tag/v1.0.0)。
-
-检查更新功能已加入主分支的 1.0.1 源码；上方 1.0.0 安装包暂不包含此功能。
+完整版本信息及源码压缩包见 [v1.0.2 发布页](https://github.com/MonQian/EasyNote/releases/tag/v1.0.2)。
 
 ## 主要功能
 
@@ -20,8 +18,9 @@ EasyNote 是一款把**待办事项和便签放在同一桌面窗口**的轻量�
 - **待办管理**：添加、编辑、完成或删除待办；设置备注、日期时间、时长、优先级及工作、学习、生活等类型。支持每天、每周、每月重复，并可指定结束日期。
 - **提醒**：可选提前提醒和自定义提醒时间；通过托盘切换弹窗、声音或两者结合，并调整音量和提示音。
 - **整理与导出**：按时间、优先级或类型排序；设置待办自动清理条件与保留时间；将历史待办导出为 Excel、Word 或 PDF。
-- **外观与托盘**：雾白、夜岩、暖纸三种主题；调整透明度、窗口层级和待办/便签区域显示状态，并可设置开机自启。
+- **外观与托盘**：雾白、夜岩、暖纸及自定义图片背景主题；图片背景跟随透明度设置。可调整窗口层级和待办/便签区域显示状态，并设置开机自启。
 - **检查更新**：从系统托盘打开独立的检查更新窗口，比较当前版本与 GitHub 最新发布版本；发现新版本时可打开下载页。
+- **使用手册**：从托盘打开独立窗口，查看全部功能的用途和操作方法。
 
 ## 技术栈与数据
 
@@ -31,7 +30,7 @@ EasyNote 是一款把**待办事项和便签放在同一桌面窗口**的轻量�
 | 界面 | TypeScript、原生 HTML/CSS、Vite |
 | 本地存储 | JSON（便签及设置）、SQLite（待办及历史记录） |
 
-数据文件 `notes.json` 和 `todos.sqlite3` 位于系统分配的 Tauri 应用数据目录。升级前建议备份这两个文件。早期 Tkinter 原型的数据格式与当前版本不同，未提供自动迁移。
+数据文件 `notes.json`、`todos.sqlite3` 和可选的 `background-image.bin` 位于系统分配的 Tauri 应用数据目录。正常升级不会删除这些文件，升级前仍建议备份。早期 Tkinter 原型的数据格式与当前版本不同，未提供自动迁移。
 
 ## 开发环境
 
@@ -64,6 +63,7 @@ npm run tauri build
 | `src/add-todo.ts`、`add-todo.html` | 新增和编辑待办窗口 |
 | `src/export.ts`、`export.html` | 历史待办导出窗口 |
 | `src/update.ts`、`update.html` | 独立的检查更新窗口 |
+| `manual.html`、`src/manual.css` | 独立的使用手册窗口 |
 | `src-tauri/src/lib.rs` | Tauri 命令、托盘、提醒及窗口管理 |
 | `src-tauri/src/storage.rs`、`src-tauri/src/export.rs` | SQLite 存储与文档导出 |
 | `src-tauri/tauri.conf.json`、`src-tauri/capabilities/` | 应用配置与窗口权限 |
