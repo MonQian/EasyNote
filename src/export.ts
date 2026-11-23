@@ -11,6 +11,7 @@ new ResizeObserver(() => {
     const height = Math.ceil(panel.getBoundingClientRect().height);
     if (Math.abs(size.width / scale - 420) > 2 || Math.abs(size.height / scale - height) > 2) {
       await win.setSize(new LogicalSize(420, height));
+      await invoke('center_popup',{label:'export'});
     }
   }).catch(console.error);
 }).observe(panel);

@@ -1,5 +1,6 @@
-html,body{background:#f8fafc!important;overflow:auto!important}
-#add-card{height:auto;min-height:100%;padding:14px 22px 25px;border:0;border-radius:0;background:#f8fafc!important;backdrop-filter:none;color:#252b34;overflow:visible}
+html,body{background:#f8fafc!important;overflow:hidden!important}
+#add-card{height:auto;min-height:100%;max-height:100vh;padding:14px 22px 25px;border:0;border-radius:0;background:#f8fafc!important;backdrop-filter:none;color:#252b34;overflow-y:auto;scrollbar-width:none}
+#add-card::-webkit-scrollbar{display:none}
 #add-card #todo-form{gap:10px}
 #add-card #todo-form label{font-size:14px;color:#252b34;gap:5px}
 #add-card #todo-form input,#add-card #todo-form select{font-size:13px;color:#252b34;background:#fff;border:1px solid #d3dbe5;border-radius:7px;padding:7px}

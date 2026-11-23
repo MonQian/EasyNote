@@ -299,34 +299,35 @@ fn delete_todo(app: tauri::AppHandle, state: tauri::State<NoteState>, id: String
 
 #[tauri::command]
 fn show_todo_form(app: &tauri::AppHandle) -> Result<(), String> {
-    let main = app.get_webview_window("main").ok_or("主窗口不存在")?;
     let add = app.get_webview_window("add-todo").ok_or("添加窗口不存在")?;
-    let pos = main.outer_position().map_err(|e| e.to_string())?;
-    let size = main.outer_size().map_err(|e| e.to_string())?;
-    // Keep the form adjacent to the main window, including near screen edges.
-    let (x, y) = if let Ok(Some(monitor)) = main.current_monitor() {
-        let left = monitor.position().x;
-        let top = monitor.position().y;
-        let right = left + monitor.size().width as i32;
-        let bottom = top + monitor.size().height as i32;
-        let add_size = add.outer_size().map_err(|e| e.to_string())?;
-        let add_width = add_size.width as i32;
-        let gap = 2;
-        let right_x = pos.x + size.width as i32 + gap;
-        let left_x = pos.x - add_width - gap;
-        let x = if right_x + add_width <= right { right_x }
-            else if left_x >= left { left_x }
-            else {
-                let main_x = left.max(right - size.width as i32 - add_width - gap);
-                main.set_position(tauri::PhysicalPosition::new(main_x, pos.y)).map_err(|e| e.to_string())?;
-                main_x + size.width as i32 + gap
-            };
-        (x, pos.y.clamp(top, (bottom - add_size.height as i32).max(top)))
-    } else { (pos.x + size.width as i32 + 2, pos.y) };
-    add.set_position(tauri::PhysicalPosition::new(x, y)).map_err(|e| e.to_string())?;
+    center_popup_window(app, &add)?;
     add.show().map_err(|e| e.to_string())?;
     add.set_focus().map_err(|e| e.to_string())?;
     Ok(())
+}
+
+fn center_popup_window(app: &tauri::AppHandle, window: &tauri::WebviewWindow) -> Result<(), String> {
+    let main = app.get_webview_window("main").ok_or("主窗口不存在")?;
+    let monitor = main.current_monitor().map_err(|e| e.to_string())?.or(window.current_monitor().map_err(|e| e.to_string())?).ok_or("无法确定屏幕")?;
+    let size = window.outer_size().map_err(|e| e.to_string())?;
+    let x = monitor.position().x + (monitor.size().width as i32 - size.width as i32) / 2;
+    let y = monitor.position().y + (monitor.size().height as i32 - size.height as i32) / 2;
+    window.set_position(tauri::PhysicalPosition::new(x, y)).map_err(|e| e.to_string())
+}
+
+fn show_centered_popup(app: &tauri::AppHandle, label: &str) {
+    if let Some(window) = app.get_webview_window(label) {
+        if let Err(error) = center_popup_window(app, &window) { eprintln!("Popup center error: {error}"); }
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+#[tauri::command]
+fn center_popup(app: tauri::AppHandle, label: String) -> Result<(), String> {
+    if !["add-todo", "export", "update", "crop-background", "shortcut-settings", "manual"].contains(&label.as_str()) { return Err("未知弹窗".into()); }
+    let window = app.get_webview_window(&label).ok_or("弹窗不存在")?;
+    center_popup_window(&app, &window)
 }
 
 #[tauri::command]
@@ -525,7 +526,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![load_note, load_custom_sound, load_background_image, load_background_source, save_cropped_background, save_note, set_click_through_shortcut, form_todo, add_todo, update_todo, toggle_todo, delete_todo, open_add_todo, open_edit_todo, close_add_todo, export_todos, close_export, update::open_update_page])
+        .invoke_handler(tauri::generate_handler![load_note, load_custom_sound, load_background_image, load_background_source, save_cropped_background, save_note, set_click_through_shortcut, center_popup, form_todo, add_todo, update_todo, toggle_todo, delete_todo, open_add_todo, open_edit_todo, close_add_todo, export_todos, close_export, update::open_update_page])
         .setup(|app| {
             // The OS registration is the source of truth for startup state.
             app.handle().plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))?;
@@ -690,9 +691,9 @@ pub fn run() {
                 .on_menu_event(move |app, event| match event.id().0.as_str() {
                     "toggle" => toggle_window(app),
                     "click_through" => { #[cfg(windows)] toggle_click_through(app); },
-                    "shortcut_settings" => { if let Some(window) = app.get_webview_window("shortcut-settings") { let _ = window.show(); let _ = window.set_focus(); } },
+                    "shortcut_settings" => show_centered_popup(app, "shortcut-settings"),
                     "export_history" => {
-                        if let Some(window) = app.get_webview_window("export") { let _ = window.show(); let _ = window.set_focus(); }
+                        show_centered_popup(app, "export");
                     }
                     id if id.starts_with("retention_") => {
                         if let Ok(days) = id.trim_start_matches("retention_").parse::<u16>() {
@@ -721,13 +722,10 @@ pub fn run() {
                         for (index, option) in sort_options.iter().enumerate() { let _ = option.set_checked(sort_orders[index] == selected); }
                         let _ = app.emit("sort-changed", selected);
                     }
-                    "tips" => { if let Some(window) = app.get_webview_window("manual") { let _ = window.show(); let _ = window.set_focus(); } },
+                    "tips" => show_centered_popup(app, "manual"),
                     "check_update" => {
-                        if let Some(window) = app.get_webview_window("update") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                            let _ = app.emit_to("update", "check-update", ());
-                        }
+                        show_centered_popup(app, "update");
+                        let _ = app.emit_to("update", "check-update", ());
                     },
                     "reminder_popup" | "reminder_both" | "reminder_sound" | "mute_app" => {
                         let state = app.state::<NoteState>();
@@ -902,11 +900,11 @@ pub fn run() {
                             let _ = custom.set_checked(true);
                             let _ = app.emit("background-image-changed", ());
                             let _ = app.emit("theme-changed", "custom");
-                            if let Some(window) = app.get_webview_window("crop-background") { let _ = window.show(); let _ = window.set_focus(); }
+                            show_centered_popup(&app, "crop-background");
                         });
                     }
                     "theme_crop_image" => {
-                        if let Some(window) = app.get_webview_window("crop-background") { let _ = window.show(); let _ = window.set_focus(); }
+                        show_centered_popup(app, "crop-background");
                     }
                     "theme_custom" | "theme_mist" | "theme_night" | "theme_warm" => {
                         let selected = event.id().0.trim_start_matches("theme_");

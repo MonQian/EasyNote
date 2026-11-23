@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { getCurrentWindow, LogicalSize, PhysicalPosition, currentMonitor } from '@tauri-apps/api/window';
+import { getCurrentWindow, LogicalSize, currentMonitor } from '@tauri-apps/api/window';
 import './style.css';
 import './popup.css';
 import './add-todo-popup.css';
@@ -18,7 +18,7 @@ function fitWindow(){resizeJob=resizeJob.then(async()=>{
   const max=monitor?Math.floor(monitor.workArea.size.height/scale)-16:needed;
   const height=Math.min(max,Math.max(needed,180));
   if(Math.abs(current.height/scale-height)>1)await win.setSize(new LogicalSize(current.width/scale,height));
-  if(monitor){const position=await win.outerPosition();const size=await win.outerSize();const top=monitor.workArea.position.y;const bottom=top+monitor.workArea.size.height;const y=Math.min(Math.max(position.y,top),Math.max(top,bottom-size.height));if(y!==position.y)await win.setPosition(new PhysicalPosition(position.x,y))}
+  await invoke('center_popup',{label:'add-todo'});
 }).catch(console.error);return resizeJob}
 let editingId:string|null=null;
 const duration=form.elements.namedItem('duration') as HTMLSelectElement;
