@@ -100,7 +100,7 @@ function renderTodos(){
     if(todo.memo){const memo=document.createElement('div');memo.className='todo-memo';memo.textContent=todo.memo;body.append(memo)}
     const metaParts:string[]=[];
     if(todo.repeat!=='none')metaParts.push(({daily:'每天',weekly:'每周',monthly:'每月'} as Record<string,string>)[todo.repeat]||'');
-    metaParts.push(todo.duration_minutes===60?'1 小时':todo.duration_minutes===120?'2 小时':`${todo.duration_minutes||15} 分钟`);
+    if(todo.duration_minutes>0)metaParts.push(todo.duration_minutes===60?'1 小时':todo.duration_minutes===120?'2 小时':`${todo.duration_minutes} 分钟`);
     if(metaParts.length||todo.due_at){const meta=document.createElement('div');meta.className='todo-meta';if(todo.due_at){const date=document.createElement('span');date.textContent=new Date(todo.due_at).toLocaleString('zh-CN',todo.time_specified?{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}:{year:'numeric',month:'2-digit',day:'2-digit'});if(!todo.completed_at&&todo.due_at+(todo.time_specified?0:86400000)<Date.now())date.className='overdue-date';meta.append(date)}if(metaParts.length)meta.append(document.createTextNode(`${todo.due_at?' · ':''}${metaParts.join(' · ')}`));body.append(meta)}
     const remove=document.createElement('button');remove.className='todo-delete';remove.type='button';remove.textContent='×';remove.title='删除待办';remove.setAttribute('aria-label',`删除 ${todo.title}`);remove.onclick=()=>void invoke('delete_todo',{id:todo.id}).catch(console.error);
     row.append(check,body,remove);todoList.append(row);

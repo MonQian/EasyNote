@@ -12,6 +12,7 @@ use rusqlite::Connection;
 mod storage;
 mod export;
 mod update;
+#[cfg(windows)] mod shortcut;
 use tauri_plugin_dialog::DialogExt;
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -68,6 +69,8 @@ struct Note {
     show_note: bool,
     #[serde(default = "default_layer")]
     window_layer: String,
+    #[serde(default = "default_shortcut")]
+    click_through_shortcut: String,
     #[serde(default)] reminder_sound: bool,
     #[serde(default = "default_reminder_mode")] reminder_mode: String,
     #[serde(default)] mute_app: bool,
@@ -78,6 +81,7 @@ struct Note {
 
 fn default_visible() -> bool { true }
 fn default_layer() -> String { "top".into() }
+fn default_shortcut() -> String { "Ctrl+Alt+Shift+F12".into() }
 fn default_opacity() -> u8 { 72 }
 fn default_duration() -> u32 { 15 }
 fn default_cleanup_mode() -> String { "both".into() }
@@ -94,7 +98,7 @@ fn expired_at(todo: &Todo, now: u64) -> Option<u64> {
 
 impl Default for Note {
     fn default() -> Self {
-        Self { text: String::new(), pages: vec![NotePage { id: uuid::Uuid::new_v4().to_string(), text: String::new(), priority: "gray".into(), edited_at: 0 }], active_page: 0, theme: "mist".into(), opacity: default_opacity(), priority: "gray".into(), edited_at: 0, position: None, window_width: None, note_height: default_note_height(), todo_height: None, todos: Vec::new(), cleanup_days: default_cleanup_days(), db_retention_days: 0, cleanup_mode: default_cleanup_mode(), show_todos: true, show_note: true, window_layer: default_layer(), reminder_sound: false, reminder_mode: default_reminder_mode(), mute_app: false, notification_volume: default_notification_volume(), notification_tone: default_notification_tone(), sort_order: default_sort_order() }
+        Self { text: String::new(), pages: vec![NotePage { id: uuid::Uuid::new_v4().to_string(), text: String::new(), priority: "gray".into(), edited_at: 0 }], active_page: 0, theme: "mist".into(), opacity: default_opacity(), priority: "gray".into(), edited_at: 0, position: None, window_width: None, note_height: default_note_height(), todo_height: None, todos: Vec::new(), cleanup_days: default_cleanup_days(), db_retention_days: 0, cleanup_mode: default_cleanup_mode(), show_todos: true, show_note: true, window_layer: default_layer(), click_through_shortcut: default_shortcut(), reminder_sound: false, reminder_mode: default_reminder_mode(), mute_app: false, notification_volume: default_notification_volume(), notification_tone: default_notification_tone(), sort_order: default_sort_order() }
     }
 }
 
@@ -141,6 +145,29 @@ fn load_background_image(state: tauri::State<NoteState>) -> Result<Option<(Strin
 }
 
 #[tauri::command]
+fn load_background_source(state: tauri::State<NoteState>) -> Result<Option<(String, Vec<u8>)>, String> {
+    let source = state.path.with_file_name("background-source.bin");
+    let path = if source.exists() { source } else { state.path.with_file_name("background-image.bin") };
+    if !path.exists() { return Ok(None); }
+    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    let mime = image_mime(&bytes).ok_or("背景图片格式无效")?;
+    Ok(Some((mime.into(), bytes)))
+}
+
+#[tauri::command]
+fn save_cropped_background(app: tauri::AppHandle, bytes: Vec<u8>) -> Result<(), String> {
+    if bytes.len() > 20_000_000 || !bytes.starts_with(&[137, 80, 78, 71, 13, 10, 26, 10]) { return Err("裁切图片必须是小于 20 MB 的 PNG".into()); }
+    let state = app.state::<NoteState>();
+    fs::write(state.path.with_file_name("background-image.bin"), bytes).map_err(|e| e.to_string())?;
+    let mut note = state.note.lock().unwrap();
+    note.theme = "custom".into();
+    write_note(&state.path, &note)?;
+    let _ = app.emit("background-image-changed", ());
+    let _ = app.emit("theme-changed", "custom");
+    Ok(())
+}
+
+#[tauri::command]
 fn save_note(state: tauri::State<NoteState>, mut note: Note) -> Result<(), String> {
     if !["mist", "night", "warm", "custom"].contains(&note.theme.as_str()) ||
        !["gray", "red", "yellow", "green"].contains(&note.priority.as_str()) {
@@ -162,6 +189,7 @@ fn save_note(state: tauri::State<NoteState>, mut note: Note) -> Result<(), Strin
     note.show_todos = current.show_todos;
     note.show_note = current.show_note;
     note.window_layer = current.window_layer.clone();
+    note.click_through_shortcut = current.click_through_shortcut.clone();
     note.reminder_sound = current.reminder_sound;
     note.reminder_mode = current.reminder_mode.clone();
     note.mute_app = current.mute_app;
@@ -193,7 +221,7 @@ fn validate_todo_input(input: &TodoInput) -> Result<(), String> {
        !["app","system"].contains(&input.remind_method.as_str()) ||
        !["work","life","study","other"].contains(&input.kind.as_str()) ||
        !["low","normal","high"].contains(&input.priority.as_str()) ||
-       input.duration_minutes == 0 || input.duration_minutes > 10_080 ||
+       input.duration_minutes > 10_080 ||
        input.remind_offsets.iter().any(|value| ![1440, 2880, 4320, 10080].contains(value)) { return Err("待办选项无效".into()); }
     if !input.remind_offsets.is_empty() && (input.due_at.is_none() || !input.time_specified) { return Err("设置提醒需要日期和时间".into()); }
     if input.remind_at.is_some_and(|at| at == 0 || input.due_at.is_some_and(|due| at > due)) { return Err("自定义提醒日期不能晚于待办时间".into()); }
@@ -423,6 +451,37 @@ fn toggle_window(app: &tauri::AppHandle) {
     }
 }
 
+#[cfg(windows)]
+fn toggle_click_through(app: &tauri::AppHandle) {
+    let state = app.state::<shortcut::ShortcutState>();
+    let mut active = state.active.lock().unwrap();
+    if let Some(window) = app.get_webview_window("main") {
+        if window.set_ignore_cursor_events(!*active).is_ok() {
+            *active = !*active;
+            let _ = app.emit("click-through-changed", *active);
+        }
+    }
+}
+
+#[tauri::command]
+fn set_click_through_shortcut(app: tauri::AppHandle, value: String) -> Result<(), String> {
+    #[cfg(windows)] {
+        let state = app.state::<NoteState>();
+        let shortcuts = app.state::<shortcut::ShortcutState>();
+        let mut note = state.note.lock().unwrap();
+        let previous = note.click_through_shortcut.clone();
+        shortcut::update(&shortcuts, value.clone())?;
+        note.click_through_shortcut = value;
+        if let Err(error) = write_note(&state.path, &note) {
+            note.click_through_shortcut = previous.clone();
+            let _ = shortcut::update(&shortcuts, previous);
+            return Err(error);
+        }
+        Ok(())
+    }
+    #[cfg(not(windows))] { let _ = (app, value); Err("仅支持 Windows".into()) }
+}
+
 fn apply_window_layer(app: &tauri::AppHandle, layer: &str) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("主窗口不存在")?;
     window.set_always_on_top(layer == "top").map_err(|e| e.to_string())?;
@@ -466,7 +525,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![load_note, load_custom_sound, load_background_image, save_note, form_todo, add_todo, update_todo, toggle_todo, delete_todo, open_add_todo, open_edit_todo, close_add_todo, export_todos, close_export, update::open_update_page])
+        .invoke_handler(tauri::generate_handler![load_note, load_custom_sound, load_background_image, load_background_source, save_cropped_background, save_note, set_click_through_shortcut, form_todo, add_todo, update_todo, toggle_todo, delete_todo, open_add_todo, open_edit_todo, close_add_todo, export_todos, close_export, update::open_update_page])
         .setup(|app| {
             // The OS registration is the source of truth for startup state.
             app.handle().plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))?;
@@ -507,7 +566,10 @@ pub fn run() {
             let notification_volume = note.notification_volume;
             let notification_tone = note.notification_tone.clone();
             let sort_order = note.sort_order.clone();
+            let click_through_shortcut = note.click_through_shortcut.clone();
             app.manage(NoteState { path, db: Mutex::new(db), note: Mutex::new(note), editing_todo: Mutex::new(None) });
+            #[cfg(windows)] app.manage(shortcut::start(app.handle().clone(), click_through_shortcut));
+            #[cfg(not(windows))] let _ = click_through_shortcut;
             apply_window_layer(app.handle(), &window_layer).map_err(std::io::Error::other)?;
             let ticker = app.handle().clone();
             std::thread::spawn(move || {
@@ -601,9 +663,11 @@ pub fn run() {
             let mut retention_menu = SubmenuBuilder::new(app, "数据库清理时间");
             for option in &retention_options { retention_menu = retention_menu.item(option); }
             let retention_menu = retention_menu.build()?;
-            let themes = SubmenuBuilder::new(app, "主题切换").items(&[&mist, &night, &warm, &custom]).separator().text("theme_choose_image", "选择背景图片…").build()?;
+            let themes = SubmenuBuilder::new(app, "主题切换").items(&[&mist, &night, &warm, &custom]).separator().text("theme_choose_image", "选择背景图片…").text("theme_crop_image", "调整图片范围…").build()?;
             let menu = MenuBuilder::new(app)
                 .text("toggle", "显示/隐藏窗口")
+                .text("click_through", "切换鼠标穿透")
+                .text("shortcut_settings", "设置穿透快捷键…")
                 .item(&todos_visible).item(&note_visible)
                 .separator()
                 .item(&themes).item(&opacity_menu).item(&layer_menu).item(&sort_menu).item(&reminder_menu)
@@ -625,6 +689,8 @@ pub fn run() {
                 })
                 .on_menu_event(move |app, event| match event.id().0.as_str() {
                     "toggle" => toggle_window(app),
+                    "click_through" => { #[cfg(windows)] toggle_click_through(app); },
+                    "shortcut_settings" => { if let Some(window) = app.get_webview_window("shortcut-settings") { let _ = window.show(); let _ = window.set_focus(); } },
                     "export_history" => {
                         if let Some(window) = app.get_webview_window("export") { let _ = window.show(); let _ = window.set_focus(); }
                     }
@@ -823,6 +889,7 @@ pub fn run() {
                                 eprintln!("背景图片需为 PNG、JPEG 或 WebP，且不超过 20 MB"); return;
                             }
                             let state = app.state::<NoteState>();
+                            if let Err(error) = fs::write(state.path.with_file_name("background-source.bin"), &bytes) { eprintln!("Background source save error: {error}"); return; }
                             let target = state.path.with_file_name("background-image.bin");
                             if let Err(error) = fs::write(target, bytes) { eprintln!("Background image save error: {error}"); return; }
                             let mut note = state.note.lock().unwrap();
@@ -835,7 +902,11 @@ pub fn run() {
                             let _ = custom.set_checked(true);
                             let _ = app.emit("background-image-changed", ());
                             let _ = app.emit("theme-changed", "custom");
+                            if let Some(window) = app.get_webview_window("crop-background") { let _ = window.show(); let _ = window.set_focus(); }
                         });
+                    }
+                    "theme_crop_image" => {
+                        if let Some(window) = app.get_webview_window("crop-background") { let _ = window.show(); let _ = window.set_focus(); }
                     }
                     "theme_custom" | "theme_mist" | "theme_night" | "theme_warm" => {
                         let selected = event.id().0.trim_start_matches("theme_");

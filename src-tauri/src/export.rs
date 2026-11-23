@@ -39,7 +39,7 @@ fn extra_label(v: &str) -> &'static str { match v { "repeat" => "重复", "repea
 fn extra(todo: &Todo, v: &str) -> String { match v {
     "repeat" => repeat(&todo.repeat).into(),
     "repeat_until" => date(todo.repeat_until),
-    "duration" => format!("{} 分钟", todo.duration_minutes),
+    "duration" => if todo.duration_minutes == 0 { "无".into() } else { format!("{} 分钟", todo.duration_minutes) },
     "priority" => priority(&todo.priority).into(),
     "reminder" => {
         let mut parts: Vec<String> = todo.remind_offsets.iter().map(|v| format!("{} 天前", v / 1440)).collect();
