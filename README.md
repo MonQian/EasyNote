@@ -9,7 +9,6 @@ EasyNote 是一款把**待办事项和便签放在同一桌面窗口**的轻量�
 | 版本 | 下载 | 用途 |
 | --- | --- | --- |
 | 安装版 | [EasyNote_1.0.0_x64_setup.exe](https://github.com/MonQian/EasyNote/releases/download/v1.0.0/EasyNote_1.0.0_x64_setup.exe) | 常规安装，包含卸载程序 |
-| 便携版 | [EasyNote_1.0.0_x64.exe](https://github.com/MonQian/EasyNote/releases/download/v1.0.0/EasyNote_1.0.0_x64.exe) | 直接运行，无需安装 |
 
 完整版本信息及源码压缩包见 [v1.0.0 发布页](https://github.com/MonQian/EasyNote/releases/tag/v1.0.0)。
 
