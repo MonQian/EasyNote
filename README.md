@@ -1,36 +1,72 @@
 # EasyNote
 
-按设计文档实现的 Tauri 2 桌面便签。待办在上、备忘录在下，各自为圆角卡片，中间间隔 5px，外层有同色系圆角底板。备忘录高度约五行，文字排版保持原样；每条待办内容在该行内垂直居中。待办区随数量增长至七条高度，超过七条后可用滚轮、触控或鼠标拖动列表滚动，滚动条始终隐藏。点击待办区的“＋”会在主窗口旁打开同风格的添加窗，填写项目、备注、日期时间、重复及结束日期、提醒及方式、优先级和类型。待办列表显示项目、备注及可选的日期时间和重复信息；圆形勾选框按类型着色，完成后整行变灰。
+EasyNote 是一款把**待办事项和便签放在同一桌面窗口**的轻量应用。它适合随手记录想法、安排有时间要求的事项，并在需要时通过系统托盘快速找回。应用数据保存在本机，无需账号。
 
-提醒提供应用内和系统通知两种方式；系统通知在安装后的 Windows 应用中效果最佳。已过时且已完成的待办默认在完成 15 天后自动清理，可在托盘“已完成过期待办清理”二级选项中改为 7、30、60 天或关闭。重复待办勾选完成后会移到下一周期，超过结束日期则保持完成状态。
+> 当前发布的成品为 **Windows x64 版**。源码使用 Tauri 2 构建；其他平台尚未提供预编译安装包。
 
-右键托盘可分别显示或隐藏待办和便签，并通过顶层“透明度”菜单选择 0%、10%、25%、40%、50%、60%、75%、90%、100%。0% 去掉卡片底色和模糊，100% 仍保留 16% 透视感；文字保持可读。菜单中也可切换雾白/夜岩/暖纸主题、选择“仅桌面上”或“置于顶层”悬浮窗层级、设置开机自启。左键托盘直接切换窗口。数据保存在 Tauri 应用数据目录的 `notes.json`。
+## 下载
 
-## 环境
+| 版本 | 下载 | 用途 |
+| --- | --- | --- |
+| 安装版 | [EasyNote_1.0.0_x64_setup.exe](https://github.com/MonQian/EasyNote/releases/download/v1.0.0/EasyNote_1.0.0_x64_setup.exe) | 常规安装，包含卸载程序 |
+| 便携版 | [EasyNote_1.0.0_x64.exe](https://github.com/MonQian/EasyNote/releases/download/v1.0.0/EasyNote_1.0.0_x64.exe) | 直接运行，无需安装 |
+
+完整版本信息及源码压缩包见 [v1.0.0 发布页](https://github.com/MonQian/EasyNote/releases/tag/v1.0.0)。
+
+## 主要功能
+
+- **桌面便签**：在多个便签页之间切换，自动保存文字；可调整便签高度、窗口宽度和位置。
+- **待办管理**：添加、编辑、完成或删除待办；设置备注、日期时间、时长、优先级及工作、学习、生活等类型。支持每天、每周、每月重复，并可指定结束日期。
+- **提醒**：可选提前提醒和自定义提醒时间；通过托盘切换弹窗、声音或两者结合，并调整音量和提示音。
+- **整理与导出**：按时间、优先级或类型排序；设置待办自动清理条件与保留时间；将历史待办导出为 Excel、Word 或 PDF。
+- **外观与托盘**：雾白、夜岩、暖纸三种主题；调整透明度、窗口层级和待办/便签区域显示状态，并可设置开机自启。
+
+## 技术栈与数据
+
+| 部分 | 技术 |
+| --- | --- |
+| 桌面应用与系统功能 | Tauri 2、Rust |
+| 界面 | TypeScript、原生 HTML/CSS、Vite |
+| 本地存储 | JSON（便签及设置）、SQLite（待办及历史记录） |
+
+数据文件 `notes.json` 和 `todos.sqlite3` 位于系统分配的 Tauri 应用数据目录。升级前建议备份这两个文件。早期 Tkinter 原型的数据格式与当前版本不同，未提供自动迁移。
+
+## 开发环境
 
 - Node.js 与 npm
-- Rust 工具链（Windows 还需 Microsoft C++ Build Tools 与 WebView2；macOS 需 Xcode Command Line Tools）
+- Rust 工具链
+- Windows 构建需要 Microsoft C++ Build Tools 和 WebView2。其他平台的依赖请参阅 [Tauri 2 环境要求](https://v2.tauri.app/start/prerequisites/)。
 
-## 启动与构建
+## 从源码启动与构建
 
 ```powershell
+git clone https://github.com/MonQian/EasyNote.git
+cd EasyNote
 npm install
 npm run tauri dev
+```
+
+构建桌面应用：
+
+```powershell
 npm run tauri build
 ```
 
-也可双击 `启动EasyNote.cmd`：已有 `release/EasyNote_1.0.0.exe` 时直接启动，否则运行开发模式。最新便携版与安装包位于 `release/`；安装后目录会包含 `uninstall_easynote.exe`。
+仅检查并构建前端时运行 `npm run build`。桌面安装包由 Tauri 构建流程生成，具体输出位置以命令行结果为准。仓库中的 `release/` 用于本地发布文件，未纳入 Git；下载已发布的成品请使用上方链接。
 
-## 主要文件
+## 项目结构
 
-- `src-tauri/tauri.conf.json`：透明无边框窗口配置
-- `src-tauri/src/lib.rs`：托盘、开机自启与 JSON 存储
-- `src/main.ts`：编辑、防抖保存、时间与贴边吸附
-- `src/add-todo.ts`：添加待办表单
-- `src/style.css`：三套主题及两种视觉状态
+| 路径 | 内容 |
+| --- | --- |
+| `src/main.ts`、`src/style.css` | 主窗口交互与样式 |
+| `src/add-todo.ts`、`add-todo.html` | 新增和编辑待办窗口 |
+| `src/export.ts`、`export.html` | 历史待办导出窗口 |
+| `src-tauri/src/lib.rs` | Tauri 命令、托盘、提醒及窗口管理 |
+| `src-tauri/src/storage.rs`、`src-tauri/src/export.rs` | SQLite 存储与文档导出 |
+| `src-tauri/tauri.conf.json`、`src-tauri/capabilities/` | 应用配置与窗口权限 |
+| `src-tauri/icons/`、`src-tauri/nsis-hooks.nsh` | 图标与 Windows 安装脚本 |
 
-该项目取代早期 Tkinter 原型；旧版数据格式是多条便签数组，新版是单卡片对象，未自动迁移。
+## 当前限制
 
-
-
-
+- 发布页目前只提供 Windows x64 成品。
+- 托盘中的“检查更新”入口尚未接入自动更新。
