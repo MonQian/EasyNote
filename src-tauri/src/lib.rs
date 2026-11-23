@@ -11,6 +11,7 @@ use tauri_plugin_notification::NotificationExt;
 use rusqlite::Connection;
 mod storage;
 mod export;
+mod update;
 use tauri_plugin_dialog::DialogExt;
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -449,7 +450,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![load_note, load_custom_sound, save_note, form_todo, add_todo, update_todo, toggle_todo, delete_todo, open_add_todo, open_edit_todo, close_add_todo, export_todos, close_export])
+        .invoke_handler(tauri::generate_handler![load_note, load_custom_sound, save_note, form_todo, add_todo, update_todo, toggle_todo, delete_todo, open_add_todo, open_edit_todo, close_add_todo, export_todos, close_export, update::open_update_page])
         .setup(|app| {
             // The OS registration is the source of truth for startup state.
             app.handle().plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))?;
@@ -638,7 +639,13 @@ pub fn run() {
                         let _ = app.emit("sort-changed", selected);
                     }
                     "tips" => { let _ = app.emit("show-tips", ()); if let Some(window) = app.get_webview_window("main") { let _ = window.show(); } },
-                    "check_update" => { let _ = app.emit("check-update", ()); if let Some(window) = app.get_webview_window("main") { let _ = window.show(); } },
+                    "check_update" => {
+                        if let Some(window) = app.get_webview_window("update") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                            let _ = app.emit_to("update", "check-update", ());
+                        }
+                    },
                     "reminder_popup" | "reminder_both" | "reminder_sound" | "mute_app" => {
                         let state = app.state::<NoteState>();
                         let mut note = state.note.lock().unwrap();

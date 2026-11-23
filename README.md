@@ -12,6 +12,8 @@ EasyNote 是一款把**待办事项和便签放在同一桌面窗口**的轻量�
 
 完整版本信息及源码压缩包见 [v1.0.0 发布页](https://github.com/MonQian/EasyNote/releases/tag/v1.0.0)。
 
+检查更新功能已加入主分支的 1.0.1 源码；上方 1.0.0 安装包暂不包含此功能。
+
 ## 主要功能
 
 - **桌面便签**：在多个便签页之间切换，自动保存文字；可调整便签高度、窗口宽度和位置。
@@ -19,6 +21,7 @@ EasyNote 是一款把**待办事项和便签放在同一桌面窗口**的轻量�
 - **提醒**：可选提前提醒和自定义提醒时间；通过托盘切换弹窗、声音或两者结合，并调整音量和提示音。
 - **整理与导出**：按时间、优先级或类型排序；设置待办自动清理条件与保留时间；将历史待办导出为 Excel、Word 或 PDF。
 - **外观与托盘**：雾白、夜岩、暖纸三种主题；调整透明度、窗口层级和待办/便签区域显示状态，并可设置开机自启。
+- **检查更新**：从系统托盘打开独立的检查更新窗口，比较当前版本与 GitHub 最新发布版本；发现新版本时可打开下载页。
 
 ## 技术栈与数据
 
@@ -60,6 +63,7 @@ npm run tauri build
 | `src/main.ts`、`src/style.css` | 主窗口交互与样式 |
 | `src/add-todo.ts`、`add-todo.html` | 新增和编辑待办窗口 |
 | `src/export.ts`、`export.html` | 历史待办导出窗口 |
+| `src/update.ts`、`update.html` | 独立的检查更新窗口 |
 | `src-tauri/src/lib.rs` | Tauri 命令、托盘、提醒及窗口管理 |
 | `src-tauri/src/storage.rs`、`src-tauri/src/export.rs` | SQLite 存储与文档导出 |
 | `src-tauri/tauri.conf.json`、`src-tauri/capabilities/` | 应用配置与窗口权限 |
@@ -68,4 +72,4 @@ npm run tauri build
 ## 当前限制
 
 - 发布页目前只提供 Windows x64 成品。
-- 托盘中的“检查更新”入口尚未接入自动更新。
+- 检查更新需要访问 GitHub；发现新版本后打开发布页手动下载安装。
