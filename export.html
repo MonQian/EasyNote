@@ -1,0 +1,8 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>导出历史待办</title></head>
+<body><main>
+  <label class="line">文件格式<select id="format"><option value="xlsx">Excel (.xlsx)</option><option value="docx">Word (.docx)</option><option value="pdf">PDF (.pdf)</option></select></label>
+  <label class="line">时间范围<select id="days"><option value="5">5 天内</option><option value="15">15 天内</option><option value="30" selected>30 天内</option><option value="120">120 天内</option><option value="365">一年内</option><option value="0">导出所有</option></select></label>
+  <section id="kinds" class="choices"><h2>导出类型（可多选）</h2><label><input type="checkbox" value="all" checked>全选</label><label><input type="checkbox" value="work" checked>工作</label><label><input type="checkbox" value="study" checked>学习</label><label><input type="checkbox" value="life" checked>生活</label><label><input type="checkbox" value="other" checked>其他</label></section>
+  <section id="extras" class="choices"><h2>附加内容（可多选）</h2><label><input type="checkbox" value="repeat">重复</label><label><input type="checkbox" value="repeat_until">结束重复</label><label><input type="checkbox" value="duration">时长</label><label><input type="checkbox" value="priority">优先级</label><label><input type="checkbox" value="reminder">提醒</label></section>
+  <p id="status" role="status"></p><div class="buttons"><button id="cancel" type="button">取消</button><button id="export" type="button">导出</button></div>
+</main><script type="module" src="/src/export.ts"></script></body></html>

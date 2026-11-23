@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EasyNote</title></head>
+<body>
+  <main id="stack" class="stack" data-theme="mist" data-tauri-drag-region>
+    <section class="todo-card glass" aria-label="待办">
+      <header class="todo-header" data-tauri-drag-region><span data-tauri-drag-region>待办</span><button id="add-todo" type="button" aria-label="新增待办" title="新增待办">＋</button></header>
+      <div id="todo-list" class="todo-list"></div>
+      <div id="todo-resize" class="section-resize" role="separator" aria-label="调整待办高度" title="拖动调整待办高度"></div>
+    </section>
+    <section id="card" class="card glass" aria-label="便签">
+      <div class="note-header"><span>便签</span><div class="page-actions"><button id="prev-page" title="上一张便签" aria-label="上一张便签">‹</button><span id="page-count">1/1</span><button id="next-page" title="下一张便签" aria-label="下一张便签">›</button><button id="add-page" title="新增便签" aria-label="新增便签">＋</button><button id="delete-page" title="删除当前便签" aria-label="删除当前便签">×</button></div></div>
+      <div class="content"><div id="line" class="line"></div><textarea id="note" aria-label="便签内容" spellcheck="false"></textarea><div class="placeholder">写点什么…</div></div>
+      <footer><span id="edited"></span></footer>
+      <div id="note-resize" class="section-resize" role="separator" aria-label="调整便签高度" title="拖动调整便签高度"></div>
+    </section>
+    <div id="reminder-toast" class="reminder-toast" hidden></div>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

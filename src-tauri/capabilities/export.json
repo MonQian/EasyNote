@@ -1,0 +1,1 @@
+{"$schema":"../gen/schemas/desktop-schema.json","identifier":"export","description":"History export window.","windows":["export"],"permissions":["core:default","core:window:allow-set-size"]}

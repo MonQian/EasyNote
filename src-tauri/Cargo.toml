@@ -1,0 +1,27 @@
+[package]
+name = "easynote"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+name = "easynote_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-autostart = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-single-instance = "2"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+tauri-plugin-dialog = "2"
+rust_xlsxwriter = "0.94"
+docx-rs = "0.4"
+printpdf = "0.9"

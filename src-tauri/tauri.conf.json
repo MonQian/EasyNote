@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "EasyNote",
+  "version": "1.0.0",
+  "identifier": "com.easynote.desktop",
+  "build": { "beforeDevCommand": "npm run dev", "devUrl": "http://localhost:1420", "beforeBuildCommand": "npm run build", "frontendDist": "../dist" },
+  "app": {
+    "windows": [{
+      "label": "main", "title": "EasyNote", "width": 320, "height": 349,
+      "minWidth": 200, "minHeight": 180,
+      "decorations": false, "transparent": true, "shadow": false,
+      "resizable": true, "alwaysOnTop": true, "skipTaskbar": true
+    }, {
+      "label": "add-todo", "title": "新增待办", "url": "add-todo.html",
+      "width": 340, "height": 400, "resizable": false, "visible": false,
+      "decorations": false, "transparent": true, "shadow": false,
+      "alwaysOnTop": true, "skipTaskbar": true
+    }, {
+      "label": "export", "title": "导出历史待办", "url": "export.html",
+      "width": 420, "height": 390, "resizable": false, "visible": false,
+      "decorations": true, "alwaysOnTop": true, "skipTaskbar": true
+    }],
+    "security": { "csp": null }
+  },
+  "bundle": { "active": true, "icon": ["icons/icon.png", "icons/icon.ico"], "windows": { "nsis": { "installerHooks": "nsis-hooks.nsh" } } }
+}
