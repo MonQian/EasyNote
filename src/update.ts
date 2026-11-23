@@ -69,7 +69,10 @@ release.addEventListener('click', async () => {
   try { await invoke('open_update_page'); }
   catch (error) { status.textContent = String(error); }
 });
-document.querySelector('#close')!.addEventListener('click', () => void getCurrentWindow().hide());
+document.querySelector('#close')!.addEventListener('click', async () => {
+  try { await getCurrentWindow().hide(); }
+  catch (error) { status.textContent = `无法关闭窗口：${String(error)}`; }
+});
 void listen('check-update', () => void check()).then(async () => {
   if (await getCurrentWindow().isVisible()) void check();
 });

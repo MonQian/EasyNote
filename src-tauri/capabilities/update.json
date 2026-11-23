@@ -1,1 +1,1 @@
-{"$schema":"../gen/schemas/desktop-schema.json","identifier":"update","description":"Standalone update check window.","windows":["update"],"permissions":["core:default"]}
+{"$schema":"../gen/schemas/desktop-schema.json","identifier":"update","description":"Standalone update check window.","windows":["update"],"permissions":["core:default","core:window:allow-hide"]}
